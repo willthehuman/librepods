@@ -150,6 +150,14 @@ fun Main() {
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("settings", MODE_PRIVATE)
 
+    // Patch: bypass the device compatibility check on all devices (rootless support).
+    // The upstream check only allows Pixels and OPPO-family devices; this lets the app
+    // run on other devices (e.g. Samsung Galaxy S23 Ultra). Features that truly require
+    // root/Xposed (VendorID spoofing) remain gated separately.
+    if (!sharedPreferences.contains("bypass_device_check.v2")) {
+        sharedPreferences.edit { putBoolean("bypass_device_check.v2", true) }
+    }
+
     val airPodsService = remember { mutableStateOf<AirPodsService?>(null) }
 
     val airPodsViewModel: AirPodsViewModel = viewModel()

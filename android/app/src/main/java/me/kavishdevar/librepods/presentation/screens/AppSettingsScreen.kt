@@ -193,6 +193,16 @@ fun AppSettingsScreen(
             enabled = state.isPremium
         )
 
+        // Patch: BLE-only mode toggle. Always visible (not gated on
+        // connectionSuccessful) so users whose L2CAP connection never succeeds
+        // can still enable the fallback manually.
+        StyledToggle(
+            label = stringResource(R.string.ble_only_mode),
+            description = stringResource(R.string.ble_only_mode_description),
+            checked = state.bleOnlyMode,
+            onCheckedChange = viewModel::setBleOnlyMode
+        )
+
         if (state.connectionSuccessful) {
             StyledToggle(
                 title = stringResource(R.string.widget),

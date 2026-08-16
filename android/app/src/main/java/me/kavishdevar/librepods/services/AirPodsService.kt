@@ -1374,6 +1374,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 "conversational_awareness_volume", 43
             ),
             qsClickBehavior = sharedPreferences.getString("qs_click_behavior", "cycle") ?: "cycle",
+            bleOnlyMode = sharedPreferences.getBoolean("ble_only_mode", false),
 
             // AirPods state-based takeover
             takeoverWhenDisconnected = sharedPreferences.getBoolean(
@@ -1491,6 +1492,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
             "qs_click_behavior" -> config.qsClickBehavior =
                 preferences.getString(key, "cycle") ?: "cycle"
+
+            "ble_only_mode" -> config.bleOnlyMode = preferences.getBoolean(key, false)
 
             // AirPods state-based takeover
             "takeover_when_disconnected" -> config.takeoverWhenDisconnected =
@@ -2633,10 +2636,37 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //        CrossDevice.isAvailable = false
     }
 
+    /**
+     * Patch: fall back to BLE-only mode when the L2CAP protocol connection fails.
+     * On devices without the Fluoride L2CAP fix (and without root/Xposed to hook it),
+     * BLE advertisements still provide battery levels and ear detection.
+     * The fallback persists "ble_only_mode" so subsequent connections skip L2CAP;
+     * it can be reverted from the app settings toggle.
+     */
+    private fun fallbackToBleOnly(reason: String) {
+        if (config.bleOnlyMode) return
+        Log.w(TAG, "L2CAP connection failed ($reason); falling back to BLE-only mode")
+        config.bleOnlyMode = true
+        sharedPreferences.edit {
+            putBoolean("ble_only_mode", true)
+            putBoolean("ble_only_auto_fallback_applied", true)
+        }
+        sendToast("Couldn't connect over L2CAP ($reason). Switched to BLE-only mode: battery and ear detection still work; advanced features need root/Xposed.")
+        updateNotificationContent(
+            true, config.deviceName, batteryNotification.getBattery()
+        )
+    }
+
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag")
     fun connectToSocket(
         adapter: BluetoothAdapter, device: BluetoothDevice, manual: Boolean = false
     ) {
+        // Patch: honor BLE-only mode at every call site (automatic connection,
+        // takeover, boot reconnect, manual reconnect).
+        if (config.bleOnlyMode) {
+            Log.d(TAG, "BLE-only mode enabled: skipping L2CAP socket connection")
+            return
+        }
         if (BluetoothConnectionManager.aacpSocket != null && BluetoothConnectionManager.aacpSocket?.isConnected == true) return
         Log.d(TAG, "<LogCollector:Start> Connecting to socket")
         val uuid: ParcelUuid = ParcelUuid.fromString("74ec2172-0bad-4d01-8f77-997b2be0722a")
@@ -2646,6 +2676,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create BluetoothSocket: ${e.message}")
             showSocketConnectionFailureNotification("Failed to create Bluetooth socket: ${e.localizedMessage}")
+            fallbackToBleOnly("socket creation failed: ${e.localizedMessage}")
             return
         }
 
@@ -2722,6 +2753,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         } else {
                             showSocketConnectionFailureNotification("Couldn't connect to socket: ${e.localizedMessage}")
                         }
+                        runCatching { socket.close() }
+                        fallbackToBleOnly("connect failed: ${e.localizedMessage}")
                         return@withTimeout
 //                            throw e // lol how did i not catch this before... gonna comment this line instead of removing to preserve history
                     }
@@ -2736,6 +2769,8 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 } else {
                     showSocketConnectionFailureNotification("Couldn't connect to socket: Timeout")
                 }
+                runCatching { socket.close() }
+                fallbackToBleOnly("connect timeout")
                 return
             }
             this@AirPodsService.device = device

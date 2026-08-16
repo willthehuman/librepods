@@ -280,6 +280,8 @@
     <string name="custom">Custom</string>
     <string name="recommended">Recommended</string>
     <string name="appearance">Appearance</string>
+    <string name="ble_only_mode">BLE-only mode (rootless fallback)</string>
+    <string name="ble_only_mode_description">Skip the L2CAP protocol connection and use Bluetooth Low Energy advertisements for battery status and ear detection. Use this if L2CAP connections fail on your device (common on non-rooted devices without the Fluoride fix). Advanced features (noise control, ear-detection actions, etc.) are unavailable in this mode. If the app switched to this mode automatically after a failed L2CAP connection, turn it off to retry the full connection.</string>
     <string name="use_material3e">Use Material 3 Expressive</string>
     <string name="material3e">Material 3 Expressive</string>
     <string name="update_m3e_description">LibrePods now supports a whole new look based on Material 3 Expressive including updated typography and adaptive color schemes.\nYou can switch back to the Apple look from the app\'s settings.</string>

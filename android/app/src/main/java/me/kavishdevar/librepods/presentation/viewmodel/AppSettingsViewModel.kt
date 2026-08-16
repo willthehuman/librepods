@@ -37,7 +37,8 @@ data class AppSettingsUiState(
     val showBottomSheetPopup: Boolean = true,
     val showIslandPopup: Boolean = true,
     val timeUntilFOSSPremiumExpiry: Long = 0L,
-    val m3eEnabled: Boolean = false
+    val m3eEnabled: Boolean = false,
+    val bleOnlyMode: Boolean = false
 )
 
 class AppSettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -152,7 +153,8 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
                 showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
                 showIslandPopup = sharedPreferences.getBoolean("show_island_popup", true),
-                m3eEnabled = sharedPreferences.getBoolean("m3e_enabled", true)
+                m3eEnabled = sharedPreferences.getBoolean("m3e_enabled", true),
+                bleOnlyMode = sharedPreferences.getBoolean("ble_only_mode", false)
             )
         }
     }
@@ -256,5 +258,15 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setm3eEnabled(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("m3e_enabled", enabled) }
         _uiState.update { it.copy(m3eEnabled = enabled) }
+    }
+
+    fun setBleOnlyMode(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("ble_only_mode", enabled) }
+        if (!enabled) {
+            // Leaving the auto-fallback state clears the marker so a future L2CAP
+            // failure can trigger the fallback again.
+            sharedPreferences.edit { putBoolean("ble_only_auto_fallback_applied", false) }
+        }
+        _uiState.update { it.copy(bleOnlyMode = enabled) }
     }
 }
