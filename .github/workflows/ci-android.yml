@@ -168,7 +168,9 @@ jobs:
         id: timestamp
         run: echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
       - name: Post to Discord
-        if: ${{ secrets.DISCORD_ANDROID_CI_URL != '' }}
+        # Forks don't have the DISCORD_ANDROID_CI_URL secret; an empty URL makes
+        # this curl fail, which must not fail the release job.
+        continue-on-error: true
         run: |
           curl -X POST "${{ secrets.DISCORD_ANDROID_CI_URL }}?with_components=true" \
             -H "Content-Type: application/json" \
